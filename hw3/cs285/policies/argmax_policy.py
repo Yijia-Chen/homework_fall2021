@@ -14,8 +14,7 @@ class ArgMaxPolicy(object):
         
         ## TODO return the action that maximizes the Q-value 
         # at the current observation as the output
-        qa_values = self.critic.qa_values(obs)
-        print(qa_values)
-        _, action = qa_values.max(dim=1)
+        qa_values = self.critic.qa_values(observation)
+        action = qa_values.argmax(axis=1)
 
         return action.squeeze()
