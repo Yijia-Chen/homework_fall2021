@@ -56,10 +56,12 @@ class MPCPolicy(BasePolicy):
             random_action_sequences = np.random.uniform(self.low, self.high, (num_sequences, horizon, self.ac_dim))
             return random_action_sequences
         elif self.sample_strategy == 'cem':
-            # TODO(Q5): Implement action selection using CEM.
+            # DONE(Q5): Implement action selection using CEM.
             # Begin with randomly selected actions, then refine the sampling distribution
             # iteratively as described in Section 3.3, "Iterative Random-Shooting with Refinement" of
             # https://arxiv.org/pdf/1909.11652.pdf
+            mean_elite = np.zeros((horizon, self.ac_dim))
+            std_elite = np.ones_like(mean_elite)
             for i in range(self.cem_iterations):
                 # - Sample candidate sequences from a Gaussian with the current
                 #   elite mean and variance
@@ -69,11 +71,15 @@ class MPCPolicy(BasePolicy):
                 #     (Hint: what existing function can we use to compute rewards for
                 #      our candidate sequences in order to rank them?)
                 # - Update the elite mean and variance
-                pass
+                candidate_action_sequences = np.random.normal(mean_elite, std_elite, (num_sequences, horizon, self.ac_dim))
+                rewards_pred = self.evaluate_candidate_sequences(candidate_action_sequences, obs)
+                elite_action_sequences = candidate_action_sequences[rewards_pred.argsort()][-self.cem_num_elites:]
+                mean_elite = self.cem_alpha * np.mean(elite_action_sequences, axis=0) + (1 - self.cem_alpha) * mean_elite
+                std_elite = self.cem_alpha * np.std(elite_action_sequences, axis=0) + (1 - self.cem_alpha) * std_elite
 
-            # TODO(Q5): Set `cem_action` to the appropriate action sequence chosen by CEM.
+            # DONE(Q5): Set `cem_action` to the appropriate action sequence chosen by CEM.
             # The shape should be (horizon, self.ac_dim)
-            cem_action = None
+            cem_action = np.random.normal(mean_elite, std_elite, (horizon, self.ac_dim))
 
             return cem_action[None]
         else:
