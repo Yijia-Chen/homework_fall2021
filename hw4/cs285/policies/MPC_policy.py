@@ -131,7 +131,7 @@ class MPCPolicy(BasePolicy):
         The array should have shape [N].
         """
         num_sequences = candidate_action_sequences.shape[0]
-        sum_of_rewards = np.zeros[num_sequences]  # DONE (Q2)
+        sum_of_rewards = np.zeros(num_sequences)  # DONE (Q2)
         obs = np.tile(obs, (num_sequences, 1))
         # For each candidate action sequence, predict a sequence of
         # states for each dynamics model in your ensemble.
