@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch import distributions
 
-from cs285.infrastructure import pytorch_util as ptu, utils
+from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.base_policy import BasePolicy
 
 
@@ -90,10 +90,13 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             observation = obs
         else:
             observation = obs[None]
-
-        observation = ptu.from_numpy(observation.astype(np.float32))
-        action = self(observation).sample()
+        observation = ptu.from_numpy(observation)
+        action_distribution = self(observation)
+        action = action_distribution.sample()  # don't bother with rsample
         return ptu.to_numpy(action)
+
+    ####################################
+    ####################################
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -120,70 +123,54 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             )
             return action_distribution
 
+    ####################################
+    ####################################
+
+
 #####################################################
 #####################################################
 
-class MLPPolicyPG(MLPPolicy):
-    def __init__(self, ac_dim, ob_dim, n_layers, size, **kwargs):
 
-        super().__init__(ac_dim, ob_dim, n_layers, size, **kwargs)
-        self.baseline_loss = nn.MSELoss()
+class MLPPolicyAC(MLPPolicy):
+    # MJ: cut acs_labels_na and qvals from the signature if they are not used
+    def update(
+            self, observations, actions,
+            adv_n=None, acs_labels_na=None, qvals=None
+    ):
+        raise NotImplementedError
+        # Not needed for this homework
 
-    def update(self, observations, actions, advantages, q_values=None):
-        observations = ptu.from_numpy(observations)
-        actions = ptu.from_numpy(actions)
-        advantages = ptu.from_numpy(advantages)
+    ####################################
+    ####################################
 
-        # DONE: update the policy using policy gradient
-        # HINT1: Recall that the expression that we want to MAXIMIZE
-            # is the expectation over collected trajectories of:
-            # sum_{t=0}^{T-1} [grad [log pi(a_t|s_t) * (Q_t - b_t)]]
-        # HINT2: you will want to use the `log_prob` method on the distribution returned
-            # by the `forward` method
-        # HINT3: don't forget that `optimizer.step()` MINIMIZES a loss
-        # HINT4: use self.optimizer to optimize the loss. Remember to
-            # 'zero_grad' first
+class MLPPolicyAWAC(MLPPolicy):
+    def __init__(self,
+                 ac_dim,
+                 ob_dim,
+                 n_layers,
+                 size,
+                 discrete=False,
+                 learning_rate=1e-4,
+                 training=True,
+                 nn_baseline=False,
+                 lambda_awac=10,
+                 **kwargs,
+                 ):
+        self.lambda_awac = lambda_awac
+        super().__init__(ac_dim, ob_dim, n_layers, size, discrete, learning_rate, training, nn_baseline, **kwargs)
+    
+    def update(self, observations, actions, adv_n=None):
+        if adv_n is None:
+            assert False
+        if isinstance(observations, np.ndarray):
+            observations = ptu.from_numpy(observations)
+        if isinstance(actions, np.ndarray):
+            actions = ptu.from_numpy(actions)
+        if isinstance(adv_n, np.ndarray):
+            adv_n = ptu.from_numpy(adv_n)
 
-        actions_predicted = self(observations).log_prob(actions)
-        loss = torch.neg(torch.mean(actions_predicted * advantages))
+        # TODO update the policy network utilizing AWAC update
 
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        if self.nn_baseline:
-            ## DONE: update the neural network baseline using the q_values as
-            ## targets. The q_values should first be normalized to have a mean
-            ## of zero and a standard deviation of one.
-
-            ## HINT1: use self.baseline_optimizer to optimize the loss used for
-                ## updating the baseline. Remember to 'zero_grad' first
-            ## HINT2: You will need to convert the targets into a tensor using
-                ## ptu.from_numpy before using it in the loss
-
-            targets = ptu.from_numpy(utils.normalize(q_values, np.mean(q_values), np.std(q_values)))
-            actions_predicted_baseline = self.baseline(observations).squeeze()
-            loss_baseline = self.baseline_loss(actions_predicted_baseline, targets)
-
-            self.baseline_optimizer.zero_grad()
-            loss_baseline.backward()
-            self.baseline_optimizer.step()
-
-        train_log = {
-            'Training Loss': ptu.to_numpy(loss),
-        }
-        return train_log
-
-    def run_baseline_prediction(self, observations):
-        """
-            Helper function that converts `observations` to a tensor,
-            calls the forward method of the baseline MLP,
-            and returns a np array
-
-            Input: `observations`: np.ndarray of size [N, 1]
-            Output: np.ndarray of size [N]
-
-        """
-        observations = ptu.from_numpy(observations)
-        pred = self.baseline(observations)
-        return ptu.to_numpy(pred.squeeze())
+        actor_loss = None
+        
+        return actor_loss.item()
