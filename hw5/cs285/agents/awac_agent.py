@@ -16,7 +16,7 @@ import torch
 
 class AWACAgent(DQNAgent):
     def __init__(self, env, agent_params, normalize_rnd=True, rnd_gamma=0.99):
-        super(AWACAgent, self).__init__(env, agent_params)
+        super().__init__(env, agent_params) # FIXME possile AWAC
         
         self.replay_buffer = MemoryOptimizedReplayBuffer(100000, 1, float_obs=True)
         self.num_exploration_steps = agent_params['num_exploration_steps']
@@ -51,7 +51,7 @@ class AWACAgent(DQNAgent):
 
     def get_qvals(self, critic, obs, action):
         # get q-value for a given critic, obs, and action
-        # FIXME: NOT USEFUL
+        # NOT USEFUL
         q_value = critic.qa_values(obs)
 
         return q_value
